@@ -1,106 +1,82 @@
-# Autonomous Path Planning Algorithm
+# Path Planning Algorithm for Autonomous Driving
 
-This project contains a Python implementation of a local path planning algorithm for an autonomous vehicle. The algorithm generates a drivable path based on detected cones that mark the boundaries of a track. It uses the vehicle's current pose (position and orientation) to compute a sequence of waypoints for the car to follow.
+## Introduction
 
-This implementation was developed as a solution for the FSAI-style path planning assignment.
-
-
-
----
-
-## Quick Start
-
-To run the simulation and test the algorithm, follow these steps.
-
-### Prerequisites
-
-* Python 3.9+
-
-### Installation & Setup
-
-1.  **Clone the repository:**
-    ```bash
-    git clone <your-repository-url>
-    cd <repository-folder>
-    ```
-
-2.  **Create and activate a virtual environment:**
-    ```bash
-    # Create the environment
-    python -m venv .venv
-
-    # Activate on macOS/Linux
-    source .venv/bin/activate
-
-    # Activate on Windows
-    .venv\Scripts\activate
-    ```
-
-3.  **Install dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-### Running a Scenario
-
-You can run any of the pre-built test scenarios using the command line.
-
-```bash
-python -m src.run --scenario <scenario_number>
-```
-For example, to run scenario 3:
-```bash
-python -m src.run --scenario 3
-```
+In this document, I am going to discuss the algorithm I implemented in `src/path_planning.py` for autonomous vehicle navigation. The algorithm generates a drivable path based on detected cones marking the track boundaries, using the vehicle's current position and orientation to compute waypoints the car can follow.
 
 ---
 
 ## Algorithm Overview
 
-The core logic is implemented in `src/path_planning.py`. It uses a geometry-based approach that processes cone positions and outputs a sequence of 2D coordinates representing the planned path. The algorithm intelligently handles three distinct scenarios.
+The `PathPlanning` class implements a geometry-based approach that processes cone positions and outputs a sequence of 2D coordinates representing the planned path. The algorithm handles three distinct scenarios: both track boundaries visible, a single boundary visible, or no cones detected.
 
-### 1. Both Track Boundaries Visible (Dual-Boundary Case)
+### Input Requirements
 
-When cones from both the left (blue) and right (yellow) sides of the track are visible, the algorithm aims to drive down the centerline.
+-   **Vehicle State:** Current position $(x, y)$ and orientation (yaw angle).
+-   **Cone Data:** A list of cone objects containing position coordinates $(x, y)$ and a color identifier (1 for blue, 0 for yellow).
 
-* It pairs each blue cone with its nearest yellow neighbor.
-* The **midpoint** of each pair becomes a waypoint on the path.
-* This ensures the vehicle maintains an equal distance from both boundaries, creating a safe and stable path.
+### Output Format
 
-### 2. Single Track Boundary Visible
-
-When only one side of the track is visible (e.g., only blue cones), the algorithm creates a parallel path using a perpendicular offset.
-
-1.  It computes the direction vector between consecutive cones on the visible boundary.
-2.  It calculates the perpendicular direction to this boundary line.
-3.  It applies an **offset of 1.5 meters** to create a path that runs parallel to the cones.
-    * If blue cones (left boundary) are visible, the path is offset to the **right**.
-    * If yellow cones (right boundary) are visible, the path is offset to the **left**.
-
-This creates an approximate centerline based on the assumption that the track has a consistent width.
-
-### 3. No Cones Detected (Fallback)
-
-When no cones are detected, the algorithm generates a simple, straight path along the vehicle's current heading (`yaw`). This ensures the car continues to move forward safely when sensor data is temporarily unavailable.
+The algorithm returns a `Path2D` object consisting of ordered $(x, y)$ coordinate pairs that define the trajectory.
 
 ---
 
-## ✨ Algorithm Characteristics
+## Implementation Logic
+
+### Cone Separation
+
+The algorithm begins by categorizing cones by color into separate lists. This separation is essential because blue and yellow cones represent opposite track boundaries, and the path should generally follow the centerline between them.
+
+### Dual-Boundary Case
+
+When cones from both sides are visible, the algorithm pairs each blue cone with its nearest yellow neighbor. The midpoint of each pair becomes a waypoint on the path. This approach ensures the vehicle drives through the center of the track, maintaining equal distance from both boundaries.
+
+### Single-Boundary Case
+
+When only one boundary is visible, the algorithm employs a perpendicular offset strategy. Cones are first sorted by distance from the vehicle. For each consecutive pair of cones, the algorithm:
+
+1.  Computes the direction vector between them.
+2.  Calculates the perpendicular direction.
+3.  Applies an offset of 1.5 units perpendicular to the cone line.
+
+The offset direction depends on which boundary is visible. For blue cones (left boundary), the path shifts right; for yellow cones (right boundary), the path shifts left. This creates an approximate centerline based on the assumption that the track has a consistent width.
+
+### No-Cone Fallback
+
+When no cones are detected, the algorithm generates a straight path along the vehicle's current heading. Ten waypoints are placed at unit intervals in the direction defined by the yaw angle.
+
+---
+
+## Path Refinement
+
+The final stage includes two operations:
+
+-   **Sorting:** Waypoints are ordered by distance from the vehicle to ensure the path progresses logically forward.
+-   **Extension:** I searched and found out that extending the path beyond the last cone provides continuous path information even as the vehicle approaches the last visible cone. This is done by computing the direction vector between the final two points and adding five additional waypoints at 0.5 unit intervals.
+
+### Handling Edge Cases
+
+The algorithm includes specific logic for scenarios where three or more cones appear on a single side. Instead of treating this as an error condition, it processes these cones sequentially, creating offset waypoints for each segment. This makes the path more stable when cone distribution is asymmetric.
+
+---
+
+## Algorithm Characteristics
 
 ### Strengths
 
-* **Computationally Efficient:** Requires only basic geometric calculations without needing complex optimization libraries.
-* **Intuitive & Transparent:** The logic is easy to understand, making it great for learning and debugging.
-* **Flexible & Robust:** Adapts well to varying numbers of detected cones and degrades gracefully when sensor information is limited.
+-   The implementation is computationally efficient, requiring only basic geometric calculations without complex optimization or external libraries.
+-   The logic is transparent and follows intuitive principles, making it suitable for educational purposes.
+-   The algorithm adapts flexibly to varying sensor inputs and degrades gracefully when information is limited.
 
 ### Limitations
 
-* **Tight Curves:** The perpendicular offset method may not accurately represent the true centerline on very sharp turns.
-* **Sensor Noise:** The algorithm does not filter for outlier cone detections, which could affect path quality.
-* **Path Extension:** The linear extension at the end of the path does not account for potential upcoming turns beyond the last visible cone.
+-   The perpendicular offset method may not accurately represent the true centerline on tight curves, where the track geometry is more complex.
+-   The algorithm does not incorporate sensor noise filtering, so outlier cone detections can affect path quality.
+-   When both boundaries are visible, the vehicle's heading is not used to anticipate path curvature.
+-   The linear extension at the path's end does not account for potential upcoming turns.
 
 ---
 
-## 📜 Conclusion
+## Conclusion
 
-This algorithm provides a simple, practical, and effective solution for the local path planning problem. By using straightforward geometric principles, it handles multiple real-world scenarios robustly. While it has limitations in highly complex situations, its simplicity and expandability make it an excellent foundation for more advanced autonomous navigation systems.
+The implemented algorithm provides a practical solution for path planning in autonomous cars. It balances simplicity with effectiveness, using straightforward geometric principles to handle multiple scenarios. While the approach has limitations in complex situations, I think its merit is being really simple and expandable.
