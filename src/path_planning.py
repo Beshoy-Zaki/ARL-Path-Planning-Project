@@ -1,52 +1,60 @@
 from __future__ import annotations
-
 from typing import List
+import math
 
 from src.models import CarPose, Cone, Path2D
 
 
 class PathPlanning:
-    """Student-implemented path planner.
-
-    You are given the car pose and an array of detected cones, each cone with (x, y, color)
-    where color is 0 for yellow (right side) and 1 for blue (left side). The goal is to
-    generate a sequence of path points that the car should follow.
-
-    Implement ONLY the generatePath function.
-    """
-
     def __init__(self, car_pose: CarPose, cones: List[Cone]):
         self.car_pose = car_pose
         self.cones = cones
 
     def generatePath(self) -> Path2D:
-        """Return a list of path points (x, y) in world frame.
+        car_x, car_y, car_yaw = self.car_pose.x, self.car_pose.y, self.car_pose.yaw
+        path = []
+        blue = [c for c in self.cones if c.color == 1]
+        yellow = [c for c in self.cones if c.color == 0]
 
-        Requirements and notes:
-        - Cones: color==0 (yellow) are on the RIGHT of the track; color==1 (blue) are on the LEFT.
-        - You may be given 2, 1, or 0 cones on each side.
-        - Use the car pose (x, y, yaw) to seed your path direction if needed.
-        - Return a drivable path that stays between left (blue) and right (yellow) cones.
-        - The returned path will be visualized by PathTester.
+        # both visible use midpoints
+        if blue and yellow:
+            for b in blue:
+                nearest_y = min(yellow, key=lambda y: (b.x - y.x)**2 + (b.y - y.y)**2)
+                path.append(((b.x + nearest_y.x) / 2, (b.y + nearest_y.y) / 2))
 
-        The path can contain as many points as you like, but it should be between 5-10 meters,
-        with a step size <= 0.5. Units are meters.
+        # if single one visible offset form it
+        elif self.cones:
+            cones = sorted(self.cones, key=lambda c: (c.x - car_x)**2 + (c.y - car_y)**2)
+            for i, c in enumerate(cones):
+                if i < len(cones) - 1:
+                    next_c = cones[i + 1]
+                    dx, dy = next_c.x - c.x, next_c.y - c.y
+                else:
+                    dx, dy = math.cos(car_yaw), math.sin(car_yaw)
 
-        Replace the placeholder implementation below with your algorithm.
-        """
+                # perpendicular
+                nx, ny = -dy, dx
+                norm = math.hypot(nx, ny)
+                nx /= norm
+                ny /= norm
 
-        # Default: produce a short straight-ahead path from the current pose.
-        # delete/replace this with your own algorithm.
-        num_points = 25
-        step = 0.5
-        cx = self.car_pose.x
-        cy = self.car_pose.y
-        import math
+                # if blue shift right if yellow shift left
+                sign = -1 if c.color == 1 else 1
+                path.append((c.x + nx * 1.5 * sign, c.y + ny * 1.5 * sign))
 
-        path: Path2D = []
-        for i in range(1, num_points + 1):
-            dx = math.cos(self.car_pose.yaw) * step * i
-            dy = math.sin(self.car_pose.yaw) * step * i
-            path.append((cx + dx, cy + dy))
+        #if no cones go straight ahead
+        else:
+            for i in range(1, 10):
+                path.append((car_x + math.cos(car_yaw) * i,
+                             car_y + math.sin(car_yaw) * i))
+        path.sort(key=lambda p: (p[0] - car_x)**2 + (p[1] - car_y)**2)
+        path.insert(0, (car_x, car_y))
+
+        if len(path) >= 2:
+            dx, dy = path[-1][0] - path[-2][0], path[-1][1] - path[-2][1]
+            angle = math.atan2(dy, dx)
+            for i in range(1, 6):
+                path.append((path[-1][0] + math.cos(angle) * 0.5,
+                             path[-1][1] + math.sin(angle) * 0.5))
 
         return path
