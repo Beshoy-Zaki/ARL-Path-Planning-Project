@@ -1,68 +1,106 @@
-## Path Planning Assignment
+# Autonomous Path Planning Algorithm
+
+This project contains a Python implementation of a local path planning algorithm for an autonomous vehicle. The algorithm generates a drivable path based on detected cones that mark the boundaries of a track. It uses the vehicle's current pose (position and orientation) to compute a sequence of waypoints for the car to follow.
+
+This implementation was developed as a solution for the FSAI-style path planning assignment.
 
 
-### Task Description
 
-#### Part 1
+---
 
-You are given up to two cones (sometimes only one, or none), each with coordinates `(x, y)` and a `color` flag:
-- `color == 0`: yellow cone (right side of the track)
-- `color == 1`: blue cone (left side of the track)
+## Quick Start
 
-You also receive the car pose `(x, y, yaw)`. Your goal is to return a sequence of path points `(x, y)` in world coordinates, representing a drivable route that stays between the left (blue) and right (yellow) boundaries. The path will be visualized by the tester.
+To run the simulation and test the algorithm, follow these steps.
 
-Implement your algorithm in:
+### Prerequisites
 
+* Python 3.9+
+
+### Installation & Setup
+
+1.  **Clone the repository:**
+    ```bash
+    git clone <your-repository-url>
+    cd <repository-folder>
+    ```
+
+2.  **Create and activate a virtual environment:**
+    ```bash
+    # Create the environment
+    python -m venv .venv
+
+    # Activate on macOS/Linux
+    source .venv/bin/activate
+
+    # Activate on Windows
+    .venv\Scripts\activate
+    ```
+
+3.  **Install dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+### Running a Scenario
+
+You can run any of the pre-built test scenarios using the command line.
+
+```bash
+python -m src.run --scenario <scenario_number>
 ```
-src/path_planning.py  ->  class PathPlanning.generatePath(self) -> Path2D
+For example, to run scenario 3:
+```bash
+python -m src.run --scenario 3
 ```
 
-The environment already runs with a basic straight-line placeholder. Replace it with your solution.
+---
 
-#### Part 2
+## Algorithm Overview
 
-What if you were given three cones on one side of the track?
-- Implement your approach to use the new givens.
-- Add new test cases to test your approach in `src/scenarios.py`.
-- Explain why you chose this solution and what could be its limitations.
+The core logic is implemented in `src/path_planning.py`. It uses a geometry-based approach that processes cone positions and outputs a sequence of 2D coordinates representing the planned path. The algorithm intelligently handles three distinct scenarios.
 
-### Quick Start
+### 1. Both Track Boundaries Visible (Dual-Boundary Case)
 
-1. Install Python 3.9+.
-2. Create a virtual environment (recommended) and install dependencies:
+When cones from both the left (blue) and right (yellow) sides of the track are visible, the algorithm aims to drive down the centerline.
 
-```
-python -m venv .venv
-source .venv/bin/activate  # macOS/Linux
-# .venv/Scripts/activate   # Windows
-pip install -r requirements.txt
-```
+* It pairs each blue cone with its nearest yellow neighbor.
+* The **midpoint** of each pair becomes a waypoint on the path.
+* This ensures the vehicle maintains an equal distance from both boundaries, creating a safe and stable path.
 
-3. Run a scenario:
+### 2. Single Track Boundary Visible
 
-```
-python -m src.run --scenario 1
-```
+When only one side of the track is visible (e.g., only blue cones), the algorithm creates a parallel path using a perpendicular offset.
 
-Available scenarios: numeric names `1`..`20` (each with up to 2 blue and 2 yellow cones placed on a 5x5 grid; car at (0,0) with varying yaw). Use `--scenario N` to select.
+1.  It computes the direction vector between consecutive cones on the visible boundary.
+2.  It calculates the perpendicular direction to this boundary line.
+3.  It applies an **offset of 1.5 meters** to create a path that runs parallel to the cones.
+    * If blue cones (left boundary) are visible, the path is offset to the **right**.
+    * If yellow cones (right boundary) are visible, the path is offset to the **left**.
 
-### Files Overview
+This creates an approximate centerline based on the assumption that the track has a consistent width.
 
-- `src/models.py`: data classes for `Cone`, `CarPose`, and `Path2D` alias.
-- `src/path_planning.py`: contains `PathPlanning` where you implement `generatePath`.
-- `src/tester.py`: simple Matplotlib visualizer that plots cones, the car, heading, and the path.
-- `src/scenarios.py`: prebuilt scenarios for testing.
-- `src/run.py`: CLI to run a scenario and visualize the result.
+### 3. No Cones Detected (Fallback)
 
-### What to Submit
+When no cones are detected, the algorithm generates a simple, straight path along the vehicle's current heading (`yaw`). This ensures the car continues to move forward safely when sensor data is temporarily unavailable.
 
-- Upload your solution to github and submit your repository link.
-- Don't forget to add documentation, explaining your solution.
+---
 
-### Author's Note
-- Keep it simple.
-- This task was chosen to give you a sense of how things work, you don't have to implement complex algorithms, read research papers, or spend days thinking about it, just implement the simplest approach you can think of that can return a correct path.
-- You are free to assume any missing information, but mention it in your submission.
-- Try to solve as many cases as you can, but you don't have to solve all the problems that can ever exist, just try your best.
-- Reminder: This problem is based on FSAI competition (a simplified version), it does not represent how path planning works everywhere it just provides an example to give you a better understanding of what path planning can look like.
-- Enjoy :)
+## ✨ Algorithm Characteristics
+
+### Strengths
+
+* **Computationally Efficient:** Requires only basic geometric calculations without needing complex optimization libraries.
+* **Intuitive & Transparent:** The logic is easy to understand, making it great for learning and debugging.
+* **Flexible & Robust:** Adapts well to varying numbers of detected cones and degrades gracefully when sensor information is limited.
+
+### Limitations
+
+* **Tight Curves:** The perpendicular offset method may not accurately represent the true centerline on very sharp turns.
+* **Sensor Noise:** The algorithm does not filter for outlier cone detections, which could affect path quality.
+* **Path Extension:** The linear extension at the end of the path does not account for potential upcoming turns beyond the last visible cone.
+
+---
+
+## 📜 Conclusion
+
+This algorithm provides a simple, practical, and effective solution for the local path planning problem. By using straightforward geometric principles, it handles multiple real-world scenarios robustly. While it has limitations in highly complex situations, its simplicity and expandability make it an excellent foundation for more advanced autonomous navigation systems.
